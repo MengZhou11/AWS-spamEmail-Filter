@@ -1,0 +1,155 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation Template",
+
+  "Resources" : {
+    "S3Bucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicRead"
+      }
+    },
+    "BucketPolicy": {
+        "Type": "AWS::S3::BucketPolicy",
+        "Properties": {
+            "PolicyDocument": {
+                "Id": "MyPolicyforbuck001",
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "PublicReadForGetBucketObjects",
+                        "Effect": "Allow",
+                        "Principal": "*",
+                        "Action": "s3:GetObject",
+                        "Resource": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "arn:aws:s3:::",
+                                    {
+                                        "Ref": "S3Bucket"
+                                    },
+                                    "/*"
+                                ]
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Bucket": {
+                "Ref": "S3Bucket"
+            }
+        }
+    },
+    "ExecutionRoleLambda": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Path": "/",
+              "Policies": [
+                {
+                  "PolicyName": "root2",
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "*"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+        },
+    "LambdaFunction": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+            "Handler": "index.handler",
+            "Role" : {
+                "Fn::GetAtt" : [
+                    "ExecutionRoleLambda", "Arn" 
+                ]
+            },
+            "Code": {
+                "ZipFile": "def my_handler(event, context):\n  message = \"Hello Lambda World!\"\n  return message\n"
+        },
+            "Runtime": "python3.8",
+            "Timeout": 25,
+            "TracingConfig": {
+                "Mode": "Active"
+            }
+        }
+    },
+    "NotebookInstance": {
+        "Type": "AWS::SageMaker::NotebookInstance",
+        "Properties": {
+         "InstanceType": "ml.t3.medium",
+         "RoleArn": { "Fn::GetAtt" : [ "ExecutionRole", "Arn" ] }
+            }
+          },
+    "ExecutionRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "sagemaker.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Path": "/",
+              "Policies": [
+                {
+                  "PolicyName": "root",
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "*"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+        }
+    },
+  "Outputs" : {
+    "S3Bucket1SecureURL" : {
+      "Value" : { "Fn::Join" : [ "", [ "https://", { "Fn::GetAtt" : [ "S3Bucket", "DomainName" ] } ] ] },
+      "Description" : "Name of S3 bucket to hold email content"
+    },
+      "NotebookInstanceId": {
+        "Value": { "Ref" : "NotebookInstance" }
+    }
+  }
+}
